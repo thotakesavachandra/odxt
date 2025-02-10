@@ -71,7 +71,7 @@ int ODXT_Update(std::string keyword, std::string id, unsigned char op)
 
     //Copy keyword
     StrToHex(keyword_chars, keyword, 4);
-    StrToHex(keyword_chars_all, keyword, 16);
+    StrToHex(keyword_chars_all, keyword, 4); // keyword should be stored in 4 bytes only even though 16 bytes is available
 
     //Copy id
     StrToHex(id_chars, id, 4);
@@ -282,7 +282,7 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
 
             //XSet retrieval
             string xtag_str = HexToStr(xtag,32);
-            auto val = redis.get(xtag_str);
+            auto val = redis.exists(xtag_str);
             
             //If val exists, the increment count
             if(val){
