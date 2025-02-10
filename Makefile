@@ -10,3 +10,7 @@ single_thread: aes.cpp rawdatautil.cpp ecc_x25519.cpp ./c/blake_hash.cpp odxt_ma
 
 clean:
 	rm -rf *.o *.gch sse_out sse_sing_thread_out
+
+clean_all:
+	@make clean
+	@redis-cli flushall

@@ -59,6 +59,7 @@ int ODXT_SetUp_Top()
         widxdb_data.push_back(widxdb_row);
         widxdb_row.clear();
     }
+    cout << "Number of Keywords: " << widxdb_data.size() << endl;
 
     widxdb_file_handle.close();
 
@@ -83,6 +84,7 @@ int ODXT_SetUp_Top()
                 id.clear();
                 id = s.substr(0,8);
                 ODXT_Update(w,id,0x01);//0x01 == ADD, 0x00 == DEL
+                // cout << "Update: " << w << " " << id << endl;
             }
         }
 
@@ -103,8 +105,8 @@ int OXT_Search_Single()
 {   
     std::vector<std::string> query;
 
-    query.push_back("00000006");
-    query.push_back("0000001a");
+    query.push_back("00003e7b");
+    query.push_back("00003b7e");
 
     std::unordered_set<std::string> IdList;
 
@@ -121,11 +123,113 @@ int OXT_Search_Single()
     return 0;
 }
 
+vector<vector<string>> read_file(string filename){
+    vector<vector<string>> ans;
+    ifstream file(filename);
+    string line;
+    while(getline(file, line, '\n')){
+        ans.push_back({});
+        stringstream ss(line);
+        string s;
+        while(getline(ss, s, ',')){
+            ans.back().push_back(s);
+        }
+    }
+    file.close();
+    return ans;
+}
+
+template <typename T>
+void write_file(string filename, const vector<vector<T>>& content){
+    ofstream file(filename);
+    for(auto& row:content){
+        for(auto& s:row){
+            file << s << ",";
+        }
+        file << "\n";
+    }
+    file.close();
+}
+
+template <typename T>
+bool check_correctness_helper(vector<T> &ra, vector<T> &rs){
+	if(rs.size() < ra.size()){
+		return false;
+	}
+	
+	set<T> st(rs.begin(), rs.end());
+	for(auto x:ra){
+		if(st.find(x) == st.end()){
+            for(auto x:rs){
+                cout << x << " ";
+            }
+            cout << "\n";
+			return false;
+		}
+	}
+	return true;
+}
+
+template <typename T>
+bool check_correctness(vector<vector<T>> &ra, vector<vector<T>> &rs){
+    if(ra.size() != rs.size()){
+        cout << "Failed " << ra.size() << " " << rs.size() << "\n";
+        return false;
+    }
+    for(int i=0; i<ra.size(); i++){
+        if(!check_correctness_helper(ra[i], rs[i])){
+            cout << "Failed " << i << "\n";
+            return false;
+        }
+    }
+    return true;
+}
+
+void ODXT_Search(string subdir_name){
+    string tv_file = "./test_vectors/" + subdir_name + "/testvector.csv";
+    string bv_file = "./test_vectors/" + subdir_name + "/binvector.csv";
+    string act_res_file = "./test_vectors/" + subdir_name + "/actual_result.csv";
+    string odxt_res_file = "./test_vectors/" + subdir_name + "/odxt_result.csv";
+
+    auto tv = read_file(tv_file);
+    auto bv = read_file(bv_file);
+
+    vector<vector<string>> res;
+    for(int i=0; i<bv.size(); i++){
+        auto tv_line = tv[i];
+        auto bv_line = bv[i];
+        set<string> res_line;
+        for(int start=0, end=0; end<bv_line.size(); start=end){
+            vector<string> query;
+            while(end<bv_line.size() && bv_line[end]==bv_line[start]){
+                query.push_back(tv_line[end]);
+                end++;
+            }
+            unordered_set<string> temp;
+            ODXT_Search(&temp, query);
+            res_line.insert(temp.begin(), temp.end());
+        }
+        res.push_back(vector<string>(res_line.begin(), res_line.end()));
+    }
+
+    vector<vector<string>> act_res = read_file(act_res_file);
+    if(check_correctness(act_res, res)){
+        cout << "Correct\n";
+    }
+    else{
+        cout << "Incorrect\n";
+    }
+
+    write_file(odxt_res_file, res);    
+}
+
 int main()
 {
     std::cout << "Starting..." << std::endl;
+    widxdb_file = "./test_vectors/5_2/meta_db6k.dat";
     ODXT_SetUp_Top();
-    OXT_Search_Single();
+    // OXT_Search_Single();
+    ODXT_Search("5_2");
     std::cout << "Complete!" << std::endl;
 
     return 0;
