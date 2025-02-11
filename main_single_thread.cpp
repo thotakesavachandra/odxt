@@ -20,7 +20,17 @@
 
 using namespace std;
 
+#define time_t std::chrono::_V2::system_clock::time_point
+#define TIME_MARKER() chrono::high_resolution_clock::now()
+#define TIME_ELAPSED(start, stop) chrono::duration_cast<chrono::microseconds>(stop - start).count()
+
+// #define TIME_START() start_marker = chrono::high_resolution_clock::now()
+// #define TIME_STOP() stop_marker = chrono::high_resolution_clock::now()
+// #define TIME_ELAPSED() chrono::duration_cast<chrono::microseconds>(stop_marker - start_marker).count()
+// std::chrono::_V2::system_clock::time_point start_marker, stop_marker;
+
 string widxdb_file = "widrxdb.csv";//Raw enron database
+string subdir_name;
 
 mpz_class Prime{"7237005577332262213973186563042994240857116359379907606001950938285454250989",10};//Curve25519 curve order
 mpz_class InvExp{"7237005577332262213973186563042994240857116359379907606001950938285454250987",10};
@@ -185,20 +195,24 @@ bool check_correctness(vector<vector<T>> &ra, vector<vector<T>> &rs){
     return true;
 }
 
-void ODXT_Search(string subdir_name){
+void ODXT_Search(){
     string tv_file = "./test_vectors/" + subdir_name + "/testvector.csv";
     string bv_file = "./test_vectors/" + subdir_name + "/binvector.csv";
     string act_res_file = "./test_vectors/" + subdir_name + "/actual_result.csv";
-    string odxt_res_file = "./test_vectors/" + subdir_name + "/odxt_result.csv";
+    string odxt_res_file = "./results/" + subdir_name + "/odxt_result.csv";
+    string precision_file = "./results/" + subdir_name + "/practical_precision.csv";
+    string query_time_file = "./results/" + subdir_name + "/query_time.csv";
 
     auto tv = read_file(tv_file);
     auto bv = read_file(bv_file);
 
     vector<vector<string>> res;
+    vector<vector<string>> query_time;
     for(int i=0; i<bv.size(); i++){
         auto tv_line = tv[i];
         auto bv_line = bv[i];
         set<string> res_line;
+        auto start = TIME_MARKER();
         for(int start=0, end=0; end<bv_line.size(); start=end){
             vector<string> query;
             while(end<bv_line.size() && bv_line[end]==bv_line[start]){
@@ -206,9 +220,20 @@ void ODXT_Search(string subdir_name){
                 end++;
             }
             unordered_set<string> temp;
+            // cout << "Querying: {";
+            // for(auto x:query){
+            //     cout << x << " ";
+            // }
+            // cout << "}\n";
             ODXT_Search(&temp, query);
+            
+            // for(auto x:temp){
+            //     cout << "\t" << x << "\n";
+            // }
             res_line.insert(temp.begin(), temp.end());
         }
+        auto stop = TIME_MARKER();
+        query_time.push_back({to_string(TIME_ELAPSED(start, stop))});
         res.push_back(vector<string>(res_line.begin(), res_line.end()));
     }
 
@@ -219,17 +244,63 @@ void ODXT_Search(string subdir_name){
     else{
         cout << "Incorrect\n";
     }
+    vector<vector<long double>> precision;
+    for(int i=0; i<act_res.size(); i++){
+        precision.push_back({(long double) act_res[i].size()/res[i].size()});
+    }
 
     write_file(odxt_res_file, res);    
+    write_file(precision_file, precision);
+    write_file(query_time_file, query_time);
 }
 
-int main()
+long double average(string filename){
+    auto content = read_file(filename);
+    long double sum = 0;
+    for(auto& row:content){
+        sum += stold(row[0]);
+    }
+    return sum/content.size();
+}
+
+int main(int argc, char *argv[])
 {
+    if(argc != 2){
+        cout << "Usage: " << argv[0] << " <test_subdir_name>\n";
+        return 1;
+    }
+    subdir_name = argv[1];
+    widxdb_file = "./test_vectors/"+ subdir_name + "/meta_db6k.dat";
+    filesystem::create_directories("./results/" + subdir_name);
+    
     std::cout << "Starting..." << std::endl;
-    widxdb_file = "./test_vectors/5_2/meta_db6k.dat";
-    ODXT_SetUp_Top();
-    // OXT_Search_Single();
-    ODXT_Search("5_2");
+
+    time_t start, stop;
+    start = TIME_MARKER();
+        ODXT_SetUp_Top();
+    stop = TIME_MARKER();
+
+    auto setup_time = TIME_ELAPSED(start, stop);
+    cout << "Setup time: " << setup_time << " microseconds\n";
+
+    start = TIME_MARKER();
+        ODXT_Search();
+    stop = TIME_MARKER();
+
+    auto search_time = TIME_ELAPSED(start, stop);
+    cout << "Search time: " << search_time << " microseconds\n";
+
+    string query_time_file = "./results/" + subdir_name + "/query_time.csv";
+    string precision_file = "./results/" + subdir_name + "/practical_precision.csv";
+    string stats_file = "./results/" + subdir_name + "/res_stats.csv";
+    
+    vector<vector<string>> stats_content;
+    stats_content.push_back({to_string(setup_time)});
+    stats_content.push_back({to_string(search_time)});
+    stats_content.push_back({to_string(average(query_time_file))});
+    stats_content.push_back({to_string(average(precision_file))});
+    write_file(stats_file, stats_content);
+
     std::cout << "Complete!" << std::endl;
 
     return 0;
