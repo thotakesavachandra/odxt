@@ -184,7 +184,7 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
     //Get update count
     auto update_cnt = update_count[query.at(0)];
     //Get least frequent keyword, order the keywords in this way
-    auto w1 = query.at(0).data();
+    auto w1 = query.at(0);
     //Number of crossterms
     auto n = query.size()-1;//Remeber! Number of cross terms, not all query keywords!
 
@@ -416,11 +416,12 @@ int NumStrToHex(unsigned char *hexarr,string numin)
 int StrToHex(unsigned char *hexarr, std::string str_in, unsigned int n_bytes)
 {
     const char *text = str_in.data();
-    char temp[2];
+    char temp[3];
     for (int j=0; j<n_bytes; j++)
     {
         temp[0] = text[2*j];
         temp[1] = text[2*j+1];
+        temp[2] = '\0';
         hexarr[j] = ::strtoul(temp,nullptr,16) & 0xFF;
     }
     return 0;
