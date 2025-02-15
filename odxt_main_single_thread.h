@@ -125,4 +125,6 @@ int StrToHex(unsigned char *hexarr, std::string str_in, unsigned int n_bytes);
 int StrToHexBVec(unsigned char *hexarr,string bvec);
 int PrintBuffer(unsigned char *dat,unsigned int n=16);
 
+#include "utils.h"
+
 #endif // ODXTMAIN_H

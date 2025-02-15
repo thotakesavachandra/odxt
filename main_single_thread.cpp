@@ -45,67 +45,6 @@ unsigned char KT[16] = {0x2B,0x7E,0x15,0x16,0x28,0xAE,0xD2,0xA6,0xAB,0xF7,0x15,0
 
 std::map<std::string,unsigned int> update_count;
 
-vector<vector<string>> read_file(string filename){
-    vector<vector<string>> ans;
-    ifstream file(filename);
-    string line;
-    while(getline(file, line, '\n')){
-        ans.push_back({});
-        stringstream ss(line);
-        string s;
-        while(getline(ss, s, ',')){
-            ans.back().push_back(s);
-        }
-    }
-    file.close();
-    return ans;
-}
-
-template <typename T>
-void write_file(string filename, const vector<vector<T>>& content){
-    ofstream file(filename);
-    for(auto& row:content){
-        for(auto& s:row){
-            file << s << ",";
-        }
-        file << "\n";
-    }
-    file.close();
-}
-
-template <typename T>
-bool check_correctness_helper(vector<T> &ra, vector<T> &rs){
-	if(rs.size() < ra.size()){
-		return false;
-	}
-	
-	set<T> st(rs.begin(), rs.end());
-	for(auto x:ra){
-		if(st.find(x) == st.end()){
-            for(auto x:rs){
-                cout << x << " ";
-            }
-            cout << "\n";
-			return false;
-		}
-	}
-	return true;
-}
-
-template <typename T>
-bool check_correctness(vector<vector<T>> &ra, vector<vector<T>> &rs){
-    if(ra.size() != rs.size()){
-        cout << "Failed " << ra.size() << " " << rs.size() << "\n";
-        return false;
-    }
-    for(int i=0; i<ra.size(); i++){
-        if(!check_correctness_helper(ra[i], rs[i])){
-            cout << "Failed " << i << "\n";
-            return false;
-        }
-    }
-    return true;
-}
 
 int ODXT_SetUp_Top()
 {
@@ -274,14 +213,6 @@ void ODXT_Search(){
     write_file(query_time_file, query_time);
 }
 
-long double average(string filename){
-    auto content = read_file(filename);
-    long double sum = 0;
-    for(auto& row:content){
-        sum += stold(row[0]);
-    }
-    return sum/content.size();
-}
 
 int main(int argc, char *argv[])
 {
