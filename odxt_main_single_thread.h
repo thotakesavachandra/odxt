@@ -89,7 +89,7 @@ int ODXT_Setup();
  * @param id Document identifier to update
  * @param op Update operation to perform
  */
-int ODXT_Update(std::string keyword, std::string id, unsigned char op);
+int ODXT_Update(std::string keyword, std::string kw, std::string id, unsigned char op);
 
 /**
  * @brief ODXT Search function

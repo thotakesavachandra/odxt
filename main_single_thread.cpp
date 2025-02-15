@@ -29,7 +29,7 @@ using namespace std;
 // #define TIME_ELAPSED() chrono::duration_cast<chrono::microseconds>(stop_marker - start_marker).count()
 // std::chrono::_V2::system_clock::time_point start_marker, stop_marker;
 
-string widxdb_file = "widrxdb.csv";//Raw enron database
+string widxdb_file = "db6k_updates.csv";//Raw enron database
 string subdir_name;
 
 mpz_class Prime{"7237005577332262213973186563042994240857116359379907606001950938285454250989",10};//Curve25519 curve order
@@ -45,6 +45,7 @@ unsigned char KT[16] = {0x2B,0x7E,0x15,0x16,0x28,0xAE,0xD2,0xA6,0xAB,0xF7,0x15,0
 
 std::map<std::string,unsigned int> update_count;
 
+MKW_Converter* mdb = NULL;
 
 int ODXT_SetUp_Top()
 {
@@ -62,65 +63,38 @@ int ODXT_SetUp_Top()
     }
     else{
         cout << "Creating new update count..." << endl;
-        ifstream widxdb_file_handle;
-        widxdb_file_handle.open(widxdb_file,ios_base::in|ios_base::binary);
-
-        stringstream ss;
-
-        string widxdb_row;
-        vector<string> widxdb_data;
-        string widxdb_row_current;
-        string s;
-
-        unsigned int kw_count = 0;
-
-        std::string w;
-        std::string id;
-
-        widxdb_row.clear();
-        while(getline(widxdb_file_handle,widxdb_row)){
-            widxdb_data.push_back(widxdb_row);
-            widxdb_row.clear();
-        }
-        cout << "Number of Keywords: " << widxdb_data.size() << endl;
-
-        widxdb_file_handle.close();
-
         Sys_Init();
-        
         ODXT_Setup();
 
-        cout << "Executing ODXT Update..." << endl;
+        string mkw_updates_file = "./test_vectors/" + subdir_name + "/mkw_updates.csv";
+        string update_time_file = "./test_vectors/" + subdir_name + "/update_time.csv";
 
-        for(auto v:widxdb_data){
-            widxdb_row_current = widxdb_data.at(kw_count);
+        auto updates = read_file(widxdb_file);
+        
+        vector<vector<int64_t>> update_time;
+        vector<vector<string>> mkw_updates;
 
-            ss.str(std::string());
-            ss << widxdb_row_current;
-            std::getline(ss,s,',');//Get the keyword
-
-            w.clear();
-            w = s.substr(0,8);
-
-            while(std::getline(ss,s,',') && !ss.eof()) {
-                if(!s.empty()){
-                    id.clear();
-                    id = s.substr(0,8);
-                    ODXT_Update(w,id,0x01);//0x01 == ADD, 0x00 == DEL
-                    // cout << "Update: " << w << " " << id << endl;
-                }
+        for(auto& row:updates){
+            auto kw = row[0];
+            auto id = row[1];
+            auto start = TIME_MARKER();
+            auto mkws = mdb->find_mkw(strToInt(kw));
+            for(auto mkw:mkws){
+                ODXT_Update(intToStr(mkw), kw, id, 0x01);
+                mkw_updates.push_back({intToStr(mkw), kw, id});
             }
-
-            ss.clear();
-            ss.seekg(0);
-
-            kw_count++;
+            auto stop = TIME_MARKER();
+            update_time.push_back({TIME_ELAPSED(start, stop)});
         }
+
         vector<vector<string>> update_count_vec;
         for(auto& kv:update_count){
             update_count_vec.push_back({kv.first, to_string(kv.second)});
         }
+
         write_file(update_count_file, update_count_vec);
+        write_file(mkw_updates_file, mkw_updates);
+        write_file(update_time_file, update_time);
 
         Sys_Clear();
     }
@@ -155,60 +129,68 @@ int OXT_Search_Single()
 
 
 void ODXT_Search(){
-    string tv_file = "./test_vectors/" + subdir_name + "/testvector.csv";
-    string bv_file = "./test_vectors/" + subdir_name + "/binvector.csv";
-    string act_res_file = "./test_vectors/" + subdir_name + "/actual_result.csv";
-    string odxt_res_file = "./results/" + subdir_name + "/odxt_result.csv";
-    string precision_file = "./results/" + subdir_name + "/practical_precision.csv";
+    string kw_query_file = "./test_vectors/" + subdir_name + "/kw_query.csv";
+    string mkw_query_file = "./test_vectors/" + subdir_name + "/mkw_query.csv";
+    string bucket_id_file = "./test_vectors/" + subdir_name + "/bucket_id.csv";
+    string kw_res_file = "./test_vectors/" + subdir_name + "/kw_result.csv";
+    string mkw_res_file = "./test_vectors/" + subdir_name + "/mkw_result.csv";
+    string precision_file = "./results/" + subdir_name + "/precision.csv";
     string query_time_file = "./results/" + subdir_name + "/query_time.csv";
 
-    auto tv = read_file(tv_file);
-    auto bv = read_file(bv_file);
-
-    vector<vector<string>> res;
+    auto kw_queries = read_file(kw_query_file);
+    vector<vector<string>> mkw_queries;
+    vector<vector<int>> bucket_ids;
+    vector<vector<string>> mkw_result;
     vector<vector<string>> query_time;
-    for(int i=0; i<bv.size(); i++){
-        auto tv_line = tv[i];
-        auto bv_line = bv[i];
-        set<string> res_line;
+
+    for(auto query_line_str:kw_queries){
         auto start = TIME_MARKER();
-        for(int start=0, end=0; end<bv_line.size(); start=end){
-            vector<string> query;
-            while(end<bv_line.size() && bv_line[end]==bv_line[start]){
-                query.push_back(tv_line[end]);
-                end++;
+        vector<int> query_line;
+        for(auto x:query_line_str){
+            query_line.push_back(strToInt(x));
+        }
+
+        auto buckets = mdb->bucketize_query(query_line);
+
+        mkw_queries.push_back({});
+        bucket_ids.push_back({});
+        mkw_result.push_back({});
+        
+        set<string> res;
+
+        for(int i=0; i<buckets.size(); i++){
+            auto mkws = mdb->convert_query(buckets[i]);
+            vector<string> mkw_str;
+            for(auto mkw:mkws){
+                mkw_str.push_back(intToStr(mkw));
+                mkw_queries.back().push_back(intToStr(mkw));
+                bucket_ids.back().push_back(i);
             }
-            unordered_set<string> temp;
-            // cout << "Querying: {";
-            // for(auto x:query){
-            //     cout << x << " ";
-            // }
-            // cout << "}\n";
-            ODXT_Search(&temp, query);
-            
-            // for(auto x:temp){
-            //     cout << "\t" << x << "\n";
-            // }
-            res_line.insert(temp.begin(), temp.end());
+            unordered_set<string> IdList;
+            ODXT_Search(&IdList, mkw_str);
+            res.insert(IdList.begin(), IdList.end());
         }
         auto stop = TIME_MARKER();
         query_time.push_back({to_string(TIME_ELAPSED(start, stop))});
-        res.push_back(vector<string>(res_line.begin(), res_line.end()));
+        mkw_result.back() = vector<string>(res.begin(), res.end());        
     }
 
-    vector<vector<string>> act_res = read_file(act_res_file);
-    if(check_correctness(act_res, res)){
+    auto act_res = read_file(kw_res_file);
+    if(check_correctness(act_res, mkw_result)){
         cout << "Correct\n";
     }
     else{
         cout << "Incorrect\n";
     }
+    
     vector<vector<long double>> precision;
     for(int i=0; i<act_res.size(); i++){
-        precision.push_back({(long double) act_res[i].size()/res[i].size()});
+        precision.push_back({(long double) act_res[i].size()/mkw_result[i].size()});
     }
 
-    write_file(odxt_res_file, res);    
+    write_file(mkw_query_file, mkw_queries);
+    write_file(bucket_id_file, bucket_ids);
+    write_file(mkw_res_file, mkw_result);
     write_file(precision_file, precision);
     write_file(query_time_file, query_time);
 }

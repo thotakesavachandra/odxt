@@ -28,7 +28,7 @@ int ODXT_Setup()
     return 0;
 }
 
-int ODXT_Update(std::string keyword, std::string id, unsigned char op)
+int ODXT_Update(std::string keyword, std::string kw, std::string id, unsigned char op)
 {
     //////////////////////////////////////////////////////////////
     //Server
@@ -109,6 +109,12 @@ int ODXT_Update(std::string keyword, std::string id, unsigned char op)
 
     //Clear the indicator variable, ideally this is not present
     addr_input[15] = 0x00;
+    
+    // Couple the kw with the meta-keyword
+    unsigned char kw_chars[4];
+    ::memset(kw_chars,0x00,4);
+    StrToHex(kw_chars, kw, 4);
+    ::memcpy(addr_input+4, kw_chars, 4);
 
     //Compute PRF using Kz
     ::memset(alpha_inv_in,0x00,32);
@@ -132,6 +138,8 @@ int ODXT_Update(std::string keyword, std::string id, unsigned char op)
     ECC_MUL(alpha_prf,alpha_inv_out,alpha);
 
     //Compute F(Kx,w)
+    // append kw to meta-keyword
+    ::memcpy(keyword_chars_all+4, kw_chars, 4);
     ::memset(xtag_exp_1,0x00,32);
     PRF_K(xtag_exp_1,keyword_chars_all,KX);
 
@@ -165,6 +173,13 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
     //Client
     //////////////////////////////////////////////////////////////
 
+    vector<int> mkws;
+    vector<vector<int>> kws;
+    for(auto s:query){
+        mkws.push_back(strToInt(s));
+        kws.push_back(mdb->find_kw(mkws.back()));
+    }
+
     unsigned char saddrj_in[16];
     unsigned char saddrj[16];
 
@@ -179,7 +194,7 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
 
     //Stokentlist
     std::vector<std::string> stokenList;
-    std::vector<std::vector<std::string>> xtokenList;
+    std::vector<std::vector<std::vector<string>>> xtokenList;
 
     //Get update count
     auto update_cnt = update_count[query.at(0)];
@@ -210,31 +225,44 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
         stokenList.push_back(HexToStr(saddrj,16));
 
         //Create xtokenlist container
-        std::vector<std::string> xtokenList_j;
+        std::vector<std::vector<std::string>> xtokenList_j;
 
         for(unsigned int i=0;i<n;++i){
-            //F(Kz,w1||j)
-            ::memset(xtoken_w1_prf_out,0x00,32);
-            PRF_K(xtoken_w1_prf_out,saddrj_in,KZ);
+            std::vector<std::string> xtokenList_j_i;
+            for(auto w0:kws[0]){
+                for(auto w1:kws[i+1]){
+                    //F(Kz,w1||j)
+                    ::memset(xtoken_w1_prf_out,0x00,32);
+                    // append w0 to saddrj_in
+                    StrToHex(saddrj_in+4, intToStr(w0), 4);
+                    PRF_K(xtoken_w1_prf_out,saddrj_in,KZ);
 
-            //F(Kx,wi)
-            ::memset(xtoken_wi_prf_out,0x00,32);
-            ::memset(xtoken_wi_prf_in,0x00,16);
-            //Copy wi
-            StrToHex(xtoken_wi_prf_in,query.at(i+1),4);
-            PRF_K(xtoken_wi_prf_out,xtoken_wi_prf_in,KX);
+                    //F(Kx,wi)
+                    ::memset(xtoken_wi_prf_out,0x00,32);
+                    ::memset(xtoken_wi_prf_in,0x00,16);
+                    //Copy wi
+                    StrToHex(xtoken_wi_prf_in,query.at(i+1),4);
+                    // append w1
+                    StrToHex(xtoken_wi_prf_in+4, intToStr(w1), 4);
+                    PRF_K(xtoken_wi_prf_out,xtoken_wi_prf_in,KX);
 
-            //Multiply
-            ::memset(xtoken_exp,0x00,32);
-            ECC_MUL(xtoken_w1_prf_out,xtoken_wi_prf_out,xtoken_exp);
+                    //Multiply
+                    ::memset(xtoken_exp,0x00,32);
+                    ECC_MUL(xtoken_w1_prf_out,xtoken_wi_prf_out,xtoken_exp);
 
-            //Scalar multiplication
-            ::memset(xtoken_j,0x00,32);
-            ScalarMul(xtoken_j,xtoken_exp,ecc_basep);
+                    //Scalar multiplication
+                    ::memset(xtoken_j,0x00,32);
+                    ScalarMul(xtoken_j,xtoken_exp,ecc_basep);
+                    
+                    xtokenList_j_i.push_back(HexToStr(xtoken_j,32));
+                }
+            }
+            shuffle(xtokenList_j_i.begin(),xtokenList_j_i.end(),default_random_engine(rand()));
 
             //Insert into container
-            xtokenList_j.push_back(HexToStr(xtoken_j,32));
+            xtokenList_j.push_back(xtokenList_j_i);
         }
+        shuffle(xtokenList_j.begin(),xtokenList_j.end(),default_random_engine(rand()));
         //Insert xtokenlist_j into container
         xtokenList.push_back(xtokenList_j);
     }
@@ -269,25 +297,42 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
         ::memcpy(alpha,sval_alpha+16,32);//Need to copy only 16 bytes, rest are zero
 
         //Get the xtokenlist_j
-        auto xtokelist_j = xtokenList[j];
+        auto xtokenlist_j = xtokenList[j];
         for(unsigned int i=0;i<n;++i){
             //Retrieve xtoken
-            auto xtoken_str = xtokelist_j[i];
+            for(auto xtoken_str:xtokenlist_j[i]){
+                ::memset(xtag,0x00,32);
+                ::memset(xtoken,0x00,32);
+                StrToHex(xtoken,xtoken_str,32);
+                ScalarMul(xtag,alpha,xtoken);
 
-            //Scalar multiplication
-            ::memset(xtag,0x00,32);
-            ::memset(xtoken,0x00,32);
-            StrToHex(xtoken,xtoken_str,32);
-            ScalarMul(xtag,alpha,xtoken);
-
-            //XSet retrieval
-            string xtag_str = HexToStr(xtag,32);
-            auto val = redis.exists(xtag_str);
-            
-            //If val exists, the increment count
-            if(val){
-                cnt_j++;
+                //XSet retrieval
+                string xtag_str = HexToStr(xtag,32);
+                auto val = redis.exists(xtag_str);
+                
+                //If val exists, the increment count
+                if(val){
+                    cnt_j++;
+                    break;
+                }
             }
+
+            // auto xtoken_str = xtokelist_j[i];
+
+            // //Scalar multiplication
+            // ::memset(xtag,0x00,32);
+            // ::memset(xtoken,0x00,32);
+            // StrToHex(xtoken,xtoken_str,32);
+            // ScalarMul(xtag,alpha,xtoken);
+
+            // //XSet retrieval
+            // string xtag_str = HexToStr(xtag,32);
+            // auto val = redis.exists(xtag_str);
+            
+            // //If val exists, the increment count
+            // if(val){
+            //     cnt_j++;
+            // }
         }
         //Insert into sEOpList (j,sval,cnt_j) == (sval,(j,cnt_j))
         sEOpList.push_back(std::make_pair(HexToStr(sval,16),std::make_pair(j,cnt_j)));//Send this to client
