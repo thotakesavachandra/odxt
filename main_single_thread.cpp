@@ -237,13 +237,22 @@ vector<vector<string>> kw_query_result(vector<vector<string>> queries){
 
 int main(int argc, char *argv[])
 {
-    if(argc != 2){
-        cout << "Usage: " << argv[0] << " <test_subdir_name>\n";
+    if(argc != 7){
+        cout << "Usage: " << argv[0] << " <test_subdir_name> <number_of_keywords> <bucket_size> <isOptimized> <hamming_weight> <number_of_queries>\n";
         return 1;
     }
     subdir_name = argv[1];
-    widxdb_file = "./test_vectors/"+ subdir_name + "/meta_db6k.dat";
+    int nKeywords = stoi(argv[2]);
+    int bucketSize = stoi(argv[3]);
+    bool isOptimized = stoi(argv[4]);
+    int hamming_weight = stoi(argv[5]);
+    int nQueries = stoi(argv[6]);
+    mdb = new MKW_Converter(ceil((nKeywords*1.0)/bucketSize), bucketSize, isOptimized);
+
+    filesystem::create_directories("./test_vectors/" + subdir_name);
     filesystem::create_directories("./results/" + subdir_name);
+    string kw_query_file = "./test_vectors/" + subdir_name + "/kw_query.csv";
+    string kw_result_file = "./test_vectors/" + subdir_name + "/kw_result.csv";
     
     std::cout << "Starting..." << std::endl;
 
@@ -255,6 +264,13 @@ int main(int argc, char *argv[])
     auto setup_time = TIME_ELAPSED(start, stop);
     cout << "Setup time: " << setup_time << " microseconds\n";
 
+    auto queries = generate_queries(nQueries, hamming_weight, nKeywords);
+    auto kw_res = kw_query_result(queries);
+    write_file(kw_query_file, queries);
+    write_file(kw_result_file, kw_res);
+    cout << "Queries generated\n";
+
+
     start = TIME_MARKER();
         ODXT_Search();
     stop = TIME_MARKER();
@@ -263,7 +279,7 @@ int main(int argc, char *argv[])
     cout << "Search time: " << search_time << " microseconds\n";
 
     string query_time_file = "./results/" + subdir_name + "/query_time.csv";
-    string precision_file = "./results/" + subdir_name + "/practical_precision.csv";
+    string precision_file = "./results/" + subdir_name + "/precision.csv";
     string stats_file = "./results/" + subdir_name + "/res_stats.csv";
     
     vector<vector<string>> stats_content;
