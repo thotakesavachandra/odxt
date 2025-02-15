@@ -203,7 +203,7 @@ vector<string> gen(int set_bits, int total_bits){
     
     vector<string> ans;
     for(int i=0; i<vec.size(); i++){
-        if(vec[i] == ' 1'){
+        if(vec[i] == '1'){
             ans.push_back(intToStr(i));
         }
     }
