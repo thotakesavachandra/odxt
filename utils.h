@@ -50,6 +50,7 @@ public:
     vector<int> find_kw(int kw);
     vector<int> find_mkw(int mkw);
     vector<int> convert_query(vector<int> query);
+    vector<vector<int>> bucketize_query(vector<int> query);
 };
 
 extern MKW_Converter* mdb;

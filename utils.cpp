@@ -241,4 +241,23 @@ vector<int> MKW_Converter::convert_query(vector<int> query){
 }
 
 
+/**
+    @brief Group together the keywords in the query that belong to the same bucket
+    @param query Vector of keywords
+    @return keywords grouped by bucket 
+*/
+vector<vector<int>> MKW_Converter::bucketize_query(vector<int> query){
+    sort(query.begin(), query.end());
+    vector<vector<int>> res;
+    for(int start=0, end=0; end<query.size(); start=end){
+        res.push_back({});
+        while(end<query.size() && query[end]/bucketSize == query[start]/bucketSize){
+            res.back().push_back(query[end]);
+            end++;
+        }
+    }
+    return std::move(res);
+}
+
+
 
