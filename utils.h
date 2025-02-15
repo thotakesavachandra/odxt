@@ -52,6 +52,7 @@ public:
     vector<int> convert_query(vector<int> query);
 };
 
+extern MKW_Converter* mdb;
 
 #endif
 

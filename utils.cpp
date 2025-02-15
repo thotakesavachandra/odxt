@@ -188,7 +188,7 @@ vector<int> MKW_Converter::find_kw(int mkw){
 
 /**
     @brief Returns meta-keywords that cover the given keyword
-    @param mkw: Chosen keyword
+    @param kw: Chosen keyword
     @return Vector of meta-keywords 
 */
 vector<int> MKW_Converter::find_mkw(int kw){
