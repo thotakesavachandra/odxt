@@ -196,6 +196,45 @@ void ODXT_Search(){
 }
 
 
+vector<string> gen(int set_bits, int total_bits){
+    string vec = string(total_bits-set_bits, '0') + string(set_bits, '1');
+    auto seed = rand();
+    shuffle(vec.begin(), vec.end(), default_random_engine(seed));
+    
+    vector<string> ans;
+    for(int i=0; i<vec.size(); i++){
+        if(vec[i] == ' 1'){
+            ans.push_back(intToStr(i));
+        }
+    }
+    return move(ans);
+}
+
+vector<vector<string>> generate_queries(int n_queries, int hamming_weight, int n_words){
+    vector<vector<string>> ans;
+    for(int i=0; i<n_queries; i++){
+        ans.push_back(gen(hamming_weight, n_words));
+    }
+    return move(ans);
+}
+
+vector<vector<string>> kw_query_result(vector<vector<string>> queries){
+    auto content = read_file(widxdb_file);
+    map<string, vector<string>> kw_map;
+    for(auto row:content){
+        kw_map[row[0]].push_back(row[1]);
+    }
+    vector<vector<string>> res;
+    for(auto query:queries){
+        set<string> s;
+        for(auto kw:query){
+            s.insert(kw_map[kw].begin(), kw_map[kw].end());
+        }
+        res.push_back(vector<string>(s.begin(), s.end()));
+    }
+    return move(res);
+}
+
 int main(int argc, char *argv[])
 {
     if(argc != 2){
