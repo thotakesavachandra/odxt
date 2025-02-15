@@ -45,94 +45,6 @@ unsigned char KT[16] = {0x2B,0x7E,0x15,0x16,0x28,0xAE,0xD2,0xA6,0xAB,0xF7,0x15,0
 
 std::map<std::string,unsigned int> update_count;
 
-int ODXT_SetUp_Top()
-{
-    cout << "Executing ODXT setup..." << endl;
-
-    ifstream widxdb_file_handle;
-    widxdb_file_handle.open(widxdb_file,ios_base::in|ios_base::binary);
-
-    stringstream ss;
-
-    string widxdb_row;
-    vector<string> widxdb_data;
-    string widxdb_row_current;
-    string s;
-
-    unsigned int kw_count = 0;
-
-    std::string w;
-    std::string id;
-
-    widxdb_row.clear();
-    while(getline(widxdb_file_handle,widxdb_row)){
-        widxdb_data.push_back(widxdb_row);
-        widxdb_row.clear();
-    }
-    cout << "Number of Keywords: " << widxdb_data.size() << endl;
-
-    widxdb_file_handle.close();
-
-    Sys_Init();
-    
-    ODXT_Setup();
-
-    cout << "Executing ODXT Update..." << endl;
-
-    for(auto v:widxdb_data){
-        widxdb_row_current = widxdb_data.at(kw_count);
-
-        ss.str(std::string());
-        ss << widxdb_row_current;
-        std::getline(ss,s,',');//Get the keyword
-
-        w.clear();
-        w = s.substr(0,8);
-
-        while(std::getline(ss,s,',') && !ss.eof()) {
-            if(!s.empty()){
-                id.clear();
-                id = s.substr(0,8);
-                ODXT_Update(w,id,0x01);//0x01 == ADD, 0x00 == DEL
-                // cout << "Update: " << w << " " << id << endl;
-            }
-        }
-
-        ss.clear();
-        ss.seekg(0);
-
-        kw_count++;
-    }
-
-    Sys_Clear();
-
-    cout << "Update complete!" << endl;
-
-    return 0;
-}
-
-int OXT_Search_Single()
-{   
-    std::vector<std::string> query;
-
-    query.push_back("00003e7b");
-    query.push_back("00003b7e");
-
-    std::unordered_set<std::string> IdList;
-
-    std::cout << "Executing ODXT Search..." << std::endl;
-
-    ODXT_Search(&IdList,query);
-
-    for(auto id_r:IdList){
-        std::cout << id_r << std::endl;
-    }
-
-    std::cout << "Search complete!" << std::endl;
-
-    return 0;
-}
-
 vector<vector<string>> read_file(string filename){
     vector<vector<string>> ans;
     ifstream file(filename);
@@ -194,6 +106,114 @@ bool check_correctness(vector<vector<T>> &ra, vector<vector<T>> &rs){
     }
     return true;
 }
+
+int ODXT_SetUp_Top()
+{
+    cout << "Executing ODXT setup..." << endl;
+    string update_count_file = "update_count.csv";
+    
+    // check for existing setup (check whether the updatecnt file exists)
+    if(filesystem::exists(update_count_file)){
+        cout << "Loading existing update count..." << endl;
+        update_count.clear();
+        auto content = read_file(update_count_file);
+        for(auto& row:content){
+            update_count[row[0]] = stoi(row[1]);
+        }
+    }
+    else{
+        cout << "Creating new update count..." << endl;
+        ifstream widxdb_file_handle;
+        widxdb_file_handle.open(widxdb_file,ios_base::in|ios_base::binary);
+
+        stringstream ss;
+
+        string widxdb_row;
+        vector<string> widxdb_data;
+        string widxdb_row_current;
+        string s;
+
+        unsigned int kw_count = 0;
+
+        std::string w;
+        std::string id;
+
+        widxdb_row.clear();
+        while(getline(widxdb_file_handle,widxdb_row)){
+            widxdb_data.push_back(widxdb_row);
+            widxdb_row.clear();
+        }
+        cout << "Number of Keywords: " << widxdb_data.size() << endl;
+
+        widxdb_file_handle.close();
+
+        Sys_Init();
+        
+        ODXT_Setup();
+
+        cout << "Executing ODXT Update..." << endl;
+
+        for(auto v:widxdb_data){
+            widxdb_row_current = widxdb_data.at(kw_count);
+
+            ss.str(std::string());
+            ss << widxdb_row_current;
+            std::getline(ss,s,',');//Get the keyword
+
+            w.clear();
+            w = s.substr(0,8);
+
+            while(std::getline(ss,s,',') && !ss.eof()) {
+                if(!s.empty()){
+                    id.clear();
+                    id = s.substr(0,8);
+                    ODXT_Update(w,id,0x01);//0x01 == ADD, 0x00 == DEL
+                    // cout << "Update: " << w << " " << id << endl;
+                }
+            }
+
+            ss.clear();
+            ss.seekg(0);
+
+            kw_count++;
+        }
+        vector<vector<string>> update_count_vec;
+        for(auto& kv:update_count){
+            update_count_vec.push_back({kv.first, to_string(kv.second)});
+        }
+        write_file(update_count_file, update_count_vec);
+
+        Sys_Clear();
+    }
+
+    cout << "Update complete!" << endl;
+
+    return 0;
+}
+
+int OXT_Search_Single()
+{   
+    std::vector<std::string> query;
+
+    query.push_back("00003e7b");
+    query.push_back("00003b7e");
+
+    std::unordered_set<std::string> IdList;
+
+    std::cout << "Executing ODXT Search..." << std::endl;
+
+    ODXT_Search(&IdList,query);
+
+    for(auto id_r:IdList){
+        std::cout << id_r << std::endl;
+    }
+
+    std::cout << "Search complete!" << std::endl;
+
+    return 0;
+}
+
+
 
 void ODXT_Search(){
     string tv_file = "./test_vectors/" + subdir_name + "/testvector.csv";

@@ -23,13 +23,14 @@ def custom_read(filename:str):
 
 
 def func(bs:int, hw:int, to_setup:bool):
-    
     dir_name = f"{bs}_{hw}"
-    
-    os.system(f"make clean_all")
+    if(to_setup):
+        os.system(f"make clean_all")
+    else:
+        os.system(f"make clean")
     os.system(f"make single_thread")
     os.system(f"./sse_sing_thread_out {dir_name}")
-    os.system(f"make clean_all")
+    os.system(f"make clean")
 
     # exp = custom_read(f"./test_vectors/{dir_name}/metaquery_result.csv")
     # act = custom_read(f"./results/{dir_name}/res_id.csv")

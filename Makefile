@@ -13,5 +13,5 @@ clean:
 
 clean_all:
 	@make clean
-	rm -rf updatecnt.csv
+	rm -rf update_count.csv
 	@redis-cli flushall
