@@ -129,7 +129,7 @@ vector<string> FMap::get(int limit){
 
 
 
-MKW_Converter::MKW_Converter(int nBuckets, int bucketSize, bool isOptimized=false):nBuckets(nBuckets), bucketSize(bucketSize), isOptimized(isOptimized){
+MKW_Converter::MKW_Converter(int nBuckets, int bucketSize, bool isOptimized):nBuckets(nBuckets), bucketSize(bucketSize), isOptimized(isOptimized){
     for(int bucket=0; bucket<nBuckets; bucket++){
         for(int i=0; i<bucketSize; i++){
             for(int j=i; j<bucketSize; j++){
