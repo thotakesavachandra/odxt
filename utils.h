@@ -11,13 +11,50 @@ using namespace std;
 vector<vector<string>> read_file(string filename);
 
 template <typename T>
-void write_file(string filename, const vector<vector<T>>& content);
+void write_file(string filename, const vector<vector<T>>& content){
+    ofstream file(filename);
+    for(auto& row:content){
+        for(auto& s:row){
+            file << s << ",";
+        }
+        file << "\n";
+    }
+    file.close();
+}
 
 template <typename T>
-bool check_correctness_helper(vector<T> &ra, vector<T> &rs);
+bool check_correctness_helper(vector<T> &ra, vector<T> &rs){
+	if(rs.size() < ra.size()){
+		return false;
+	}
+	
+	set<T> st(rs.begin(), rs.end());
+	for(auto x:ra){
+		if(st.find(x) == st.end()){
+            for(auto x:rs){
+                cout << x << " ";
+            }
+            cout << "\n";
+			return false;
+		}
+	}
+	return true;
+}
 
 template <typename T>
-bool check_correctness(vector<vector<T>> &ra, vector<vector<T>> &rs);
+bool check_correctness(vector<vector<T>> &ra, vector<vector<T>> &rs){
+    if(ra.size() != rs.size()){
+        cout << "Failed " << ra.size() << " " << rs.size() << "\n";
+        return false;
+    }
+    for(int i=0; i<ra.size(); i++){
+        if(!check_correctness_helper(ra[i], rs[i])){
+            cout << "Failed " << i << "\n";
+            return false;
+        }
+    }
+    return true;
+}
 
 long double average(string filename);
 

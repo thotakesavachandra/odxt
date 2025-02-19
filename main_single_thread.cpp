@@ -68,11 +68,13 @@ int ODXT_SetUp_Top()
 
         string mkw_updates_file = "./test_vectors/" + subdir_name + "/mkw_updates.csv";
         string update_time_file = "./test_vectors/" + subdir_name + "/update_time.csv";
+        string mkw_update_count_file = "./test_vectors/" + subdir_name + "/mkw_update_count.csv";
 
         auto updates = read_file(widxdb_file);
         
         vector<vector<int64_t>> update_time;
         vector<vector<string>> mkw_updates;
+        vector<vector<int>> mkw_update_count;
 
         for(auto& row:updates){
             auto kw = row[0];
@@ -85,6 +87,7 @@ int ODXT_SetUp_Top()
             }
             auto stop = TIME_MARKER();
             update_time.push_back({TIME_ELAPSED(start, stop)});
+            mkw_update_count.push_back({(int)mkws.size()});
         }
 
         vector<vector<string>> update_count_vec;
@@ -95,6 +98,7 @@ int ODXT_SetUp_Top()
         write_file(update_count_file, update_count_vec);
         write_file(mkw_updates_file, mkw_updates);
         write_file(update_time_file, update_time);
+        write_file(mkw_update_count_file, mkw_update_count);
 
         Sys_Clear();
     }
@@ -132,16 +136,20 @@ void ODXT_Search(){
     string kw_query_file = "./test_vectors/" + subdir_name + "/kw_query.csv";
     string mkw_query_file = "./test_vectors/" + subdir_name + "/mkw_query.csv";
     string bucket_id_file = "./test_vectors/" + subdir_name + "/bucket_id.csv";
-    string kw_res_file = "./test_vectors/" + subdir_name + "/kw_result.csv";
-    string mkw_res_file = "./test_vectors/" + subdir_name + "/mkw_result.csv";
+    string kw_res_file = "./results/" + subdir_name + "/kw_result.csv";
+    string mkw_res_file = "./results/" + subdir_name + "/mkw_result.csv";
     string precision_file = "./results/" + subdir_name + "/precision.csv";
     string query_time_file = "./results/" + subdir_name + "/query_time.csv";
+    string mkw_query_count_file = "./results/" + subdir_name + "/mkw_query_count.csv";
+    string bucket_query_count_file = "./results/" + subdir_name + "/bucket_query_count.csv";
 
     auto kw_queries = read_file(kw_query_file);
     vector<vector<string>> mkw_queries;
     vector<vector<int>> bucket_ids;
     vector<vector<string>> mkw_result;
     vector<vector<string>> query_time;
+    vector<vector<int>> mkw_query_count;
+    vector<vector<int>> bucket_query_count;
 
     for(auto query_line_str:kw_queries){
         auto start = TIME_MARKER();
@@ -155,11 +163,14 @@ void ODXT_Search(){
         mkw_queries.push_back({});
         bucket_ids.push_back({});
         mkw_result.push_back({});
+        mkw_query_count.push_back({0});
+        bucket_query_count.push_back({(int)buckets.size()});
         
         set<string> res;
 
         for(int i=0; i<buckets.size(); i++){
             auto mkws = mdb->convert_query(buckets[i]);
+            mkw_query_count.back()[0] += mkws.size();
             vector<string> mkw_str;
             for(auto mkw:mkws){
                 mkw_str.push_back(intToStr(mkw));
@@ -193,6 +204,8 @@ void ODXT_Search(){
     write_file(mkw_res_file, mkw_result);
     write_file(precision_file, precision);
     write_file(query_time_file, query_time);
+    write_file(mkw_query_count_file, mkw_query_count);
+    write_file(bucket_query_count_file, bucket_query_count);
 }
 
 
@@ -252,7 +265,7 @@ int main(int argc, char *argv[])
     filesystem::create_directories("./test_vectors/" + subdir_name);
     filesystem::create_directories("./results/" + subdir_name);
     string kw_query_file = "./test_vectors/" + subdir_name + "/kw_query.csv";
-    string kw_result_file = "./test_vectors/" + subdir_name + "/kw_result.csv";
+    string kw_result_file = "./results/" + subdir_name + "/kw_result.csv";
     
     std::cout << "Starting..." << std::endl;
 
@@ -262,13 +275,13 @@ int main(int argc, char *argv[])
     stop = TIME_MARKER();
 
     auto setup_time = TIME_ELAPSED(start, stop);
-    cout << "Setup time: " << setup_time << " microseconds\n";
+    cout << "Setup time: " << setup_time << " microseconds" << std::endl;
 
     auto queries = generate_queries(nQueries, hamming_weight, nKeywords);
     auto kw_res = kw_query_result(queries);
     write_file(kw_query_file, queries);
     write_file(kw_result_file, kw_res);
-    cout << "Queries generated\n";
+    cout << "Queries generated" << std::endl;
 
 
     start = TIME_MARKER();
@@ -276,17 +289,26 @@ int main(int argc, char *argv[])
     stop = TIME_MARKER();
 
     auto search_time = TIME_ELAPSED(start, stop);
-    cout << "Search time: " << search_time << " microseconds\n";
+    cout << "Search time: " << search_time << " microseconds" << std::endl;
 
+    string update_time_file = "./test_vectors/" + subdir_name + "/update_time.csv";
+    string mkw_update_count_file = "./test_vectors/" + subdir_name + "/mkw_update_count.csv";
+    
     string query_time_file = "./results/" + subdir_name + "/query_time.csv";
     string precision_file = "./results/" + subdir_name + "/precision.csv";
+    string mkw_query_count_file = "./results/" + subdir_name + "/mkw_query_count.csv";
+    string bucket_query_count_file = "./results/" + subdir_name + "/bucket_query_count.csv";
     string stats_file = "./results/" + subdir_name + "/res_stats.csv";
     
     vector<vector<string>> stats_content;
     stats_content.push_back({to_string(setup_time)});
     stats_content.push_back({to_string(search_time)});
+    stats_content.push_back({to_string(average(update_time_file))});
+    stats_content.push_back({to_string(average(mkw_update_count_file))});
     stats_content.push_back({to_string(average(query_time_file))});
     stats_content.push_back({to_string(average(precision_file))});
+    stats_content.push_back({to_string(average(mkw_query_count_file))});
+    stats_content.push_back({to_string(average(bucket_query_count_file))});
     write_file(stats_file, stats_content);
 
     std::cout << "Complete!" << std::endl;
