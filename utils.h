@@ -84,8 +84,8 @@ class MKW_Converter{
     vector<pair<int,int>> break_mkw_range(pair<int,int> range);
 public:
     MKW_Converter(int nBuckets, int bucketSize, bool isOptimized);
-    vector<int> find_kw(int kw);
-    vector<int> find_mkw(int mkw);
+    vector<int> find_kw(int mkw);
+    vector<int> find_mkw(int kw);
     vector<int> convert_query(vector<int> query);
     vector<vector<int>> bucketize_query(vector<int> query);
 };

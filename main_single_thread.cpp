@@ -131,6 +131,18 @@ int OXT_Search_Single()
 }
 
 
+std::mutex res_mutex;
+
+
+void search_single(vector<string> mkw_str, set<string>& res){
+    unordered_set<string> IdList;
+    ODXT_Search(&IdList, mkw_str);
+    {
+        std::lock_guard<std::mutex> lock(res_mutex);
+        res.insert(IdList.begin(), IdList.end());
+    }
+}
+
 
 void ODXT_Search(){
     string kw_query_file = "./test_vectors/" + subdir_name + "/kw_query.csv";
@@ -167,6 +179,8 @@ void ODXT_Search(){
         bucket_query_count.push_back({(int)buckets.size()});
         
         set<string> res;
+        vector<thread> threads;
+        const auto processor_count = std::thread::hardware_concurrency()/2;
 
         for(int i=0; i<buckets.size(); i++){
             auto mkws = mdb->convert_query(buckets[i]);
@@ -177,10 +191,19 @@ void ODXT_Search(){
                 mkw_queries.back().push_back(intToStr(mkw));
                 bucket_ids.back().push_back(i);
             }
-            unordered_set<string> IdList;
-            ODXT_Search(&IdList, mkw_str);
-            res.insert(IdList.begin(), IdList.end());
+            // unordered_set<string> IdList;
+            // ODXT_Search(&IdList, mkw_str);
+            // res.insert(IdList.begin(), IdList.end());
+            threads.emplace_back(search_single, mkw_str, ref(res));
+            cpu_set_t cpu_set;
+            CPU_ZERO(&cpu_set);
+            CPU_SET(i%processor_count + processor_count, &cpu_set);
+            pthread_setaffinity_np(threads.back().native_handle(), sizeof(cpu_set_t), &cpu_set);
         }
+        for(auto& t:threads){
+            t.join();
+        }
+        // assert(res.size() > 0);
         auto stop = TIME_MARKER();
         query_time.push_back({to_string(TIME_ELAPSED(start, stop))});
         mkw_result.back() = vector<string>(res.begin(), res.end());        
