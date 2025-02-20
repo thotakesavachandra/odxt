@@ -83,31 +83,30 @@ vector<string> FMap::get(int limit){
 }
 
 
-
-
-MKW_Converter::MKW_Converter(int nBuckets, int bucketSize, bool isOptimized):nBuckets(nBuckets), bucketSize(bucketSize), isOptimized(isOptimized){
-    for(int bucket=0; bucket<nBuckets; bucket++){
-        for(int i=0; i<bucketSize; i++){
-            for(int j=i; j<bucketSize; j++){
-                if(j-i+1 == bucketSize) continue;
-                if(isOptimized && !isPowerOfTwo(j-i+1)) continue;
-                auto mkw = construct(bucket, i, j);
-                mp[mkw] = mkws.size();
-                mkws.push_back(mkw);
+MKW_Converter::MKW_Converter(int bucketSize, bool isOptimized):bucketSize(bucketSize), isOptimized(isOptimized){
+    kws.resize(bucketSize);
+    for(int i=0; i<bucketSize; i++){
+        for(int j=i; j<bucketSize; j++){
+            if(j-i+1 == bucketSize) continue;
+            if(isOptimized && !isPowerOfTwo(j-i+1)) continue;
+            mkws.push_back({});
+            int mkw_num = mkws.size() - 1;
+            mp[{i, j}] = mkw_num;
+            for(int k=0; k<bucketSize; k++){
+                if(i<=k && k<=j) continue;
+                kws[k].push_back(mkw_num);
+                mkws[mkw_num].push_back(k);
             }
         }
     }
-    shuffle(mkws.begin(), mkws.end(), default_random_engine(0));
-    for(int i=0; i<mkws.size(); i++){
-        mp[mkws[i]] = i;
-    }
-}
-
-inline string MKW_Converter::construct(int bucket, int i, int j){
-    return intToStr(bucket) + intToStr(i) + intToStr(j);
 }
 
 
+/**
+    @brief Breaks the meta-keyword as Opt-Log-TWINSSE
+    @param range (i,j) indicating mkw(i,j)
+    @return Broken down meta-keywords (inform of {i,j})
+ */
 vector<pair<int,int>> MKW_Converter::break_mkw_range(pair<int,int> range){
     int i = range.first, j = range.second;
     if(!isOptimized || isPowerOfTwo(j-i+1)) return {range};
@@ -124,71 +123,63 @@ vector<pair<int,int>> MKW_Converter::break_mkw_range(pair<int,int> range){
 
 
 /**
-    @brief Returns keywords that are covered by the given meta-keyword
-    @param mkw Chosen meta-keyword
-    @return Vector of keywords
+   @brief Returns keywords that are covered by the given meta-keyword
+   @param mkw Chosen meta-keyword
+   @return Vector of keywords
 */
 vector<int> MKW_Converter::find_kw(int mkw){
-    string s = mkws[mkw];
-    int bucket = strToInt(s.substr(0, 8));
-    int i = strToInt(s.substr(8, 8));
-    int j = strToInt(s.substr(16, 8));
+    int bucket = mkw / mkws.size();
+    mkw = mkw % mkws.size();
     vector<int> res;
-    for(int idx=0; idx<bucketSize; idx++){
-        if(i<=idx && idx<=j) continue;
-        res.push_back(bucket*bucketSize + idx);
+    for(auto x:mkws[mkw]){
+        res.push_back(bucket*kws.size() + x);
     }
     return std::move(res);
 }
 
 
 /**
-    @brief Returns meta-keywords that cover the given keyword
-    @param kw: Chosen keyword
-    @return Vector of meta-keywords 
+   @brief Returns meta-keywords that cover the given keyword
+   @param kw Chosen keyword
+   @return Vector of meta-keywords
 */
 vector<int> MKW_Converter::find_mkw(int kw){
     int bucket = kw / bucketSize;
-    int idx = kw % bucketSize;
+    kw = kw % bucketSize;
     vector<int> res;
-    for(int i=0; i<bucketSize; i++){
-        for(int j=i; j<bucketSize; j++){
-            if(j-i+1 == bucketSize) continue;
-            if(isOptimized && !isPowerOfTwo(j-i+1)) continue;
-            if(i<=idx && idx<=j) continue;
-            res.push_back(mp[construct(bucket, i, j)]);
-        }
+    for(auto x:kws[kw]){
+        res.push_back(bucket*mkws.size() + x);
     }
     return std::move(res);
 }
 
 
 /**
-    @brief Converts a given disjunctive keyword query into a conjunctive meta-keyword query
-    @param query Vector of keywords
-    @return Vector of meta-keywords
-
-    Requires: All the keywords in the query are distinct but belong to the same bucket 
-*/
+ @brief Converts a given disjunctive keyword query into a conjunctive meta-keyword query
+ @param query Vector of keywords
+ @return Vector of meta-keywords
+ 
+ Requires: All the keywords in the query are distinct but belong to the same bucket 
+ */
 vector<int> MKW_Converter::convert_query(vector<int> query){
     if(query.size()==0) return {};
     sort(query.begin(), query.end());
-    int bucket = query[0]/bucketSize;
+    int bucket = query[0] / kws.size();
     for(auto& x:query){
-        x = x % bucketSize;
+        x = x % kws.size();
     }
     vector<int> res;
     int prev = -1; // upto where you have already left
-    query.push_back(bucketSize);
+    query.push_back(kws.size());
     for(auto x:query){
         // leave from prev+1 to curr-1
         int i = prev + 1;
         int j = x - 1;
-        if(j-i+1 <= 0 || j-i+1 == bucketSize){}
+        if(j-i+1 <= 0 || j-i+1 == kws.size()){}
         else{
             auto ranges = break_mkw_range({i, j});
             for(auto r:ranges){
-                res.push_back(mp[construct(bucket, r.first, r.second)]);
+                res.push_back(bucket*mkws.size() + mp[r]);
             }
         }
         prev = x;
@@ -196,11 +187,10 @@ vector<int> MKW_Converter::convert_query(vector<int> query){
     return std::move(res);
 }
 
-
 /**
     @brief Group together the keywords in the query that belong to the same bucket
     @param query Vector of keywords
-    @return keywords grouped by bucket 
+    @return keywords grouped by bucket
 */
 vector<vector<int>> MKW_Converter::bucketize_query(vector<int> query){
     sort(query.begin(), query.end());
@@ -214,6 +204,10 @@ vector<vector<int>> MKW_Converter::bucketize_query(vector<int> query){
     }
     return std::move(res);
 }
+
+
+
+
 
 
 

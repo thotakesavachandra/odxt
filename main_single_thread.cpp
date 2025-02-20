@@ -283,7 +283,7 @@ int main(int argc, char *argv[])
     bool isOptimized = stoi(argv[4]);
     int hamming_weight = stoi(argv[5]);
     int nQueries = stoi(argv[6]);
-    mdb = new MKW_Converter(ceil((nKeywords*1.0)/bucketSize), bucketSize, isOptimized);
+    mdb = new MKW_Converter(bucketSize, isOptimized);
 
     filesystem::create_directories("./test_vectors/" + subdir_name);
     filesystem::create_directories("./results/" + subdir_name);

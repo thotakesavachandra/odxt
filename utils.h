@@ -74,18 +74,17 @@ public:
     vector<string> get(int limit=1);
 };
 
-
 class MKW_Converter{
-    int nBuckets, bucketSize;
+    int bucketSize;
     bool isOptimized;
-    map<string, int> mp;
-    vector<string> mkws;
-    inline string construct(int bucket, int i, int j);
+    vector<vector<int>> kws;
+    vector<vector<int>> mkws;
+    map<pair<int,int>, int> mp;
     vector<pair<int,int>> break_mkw_range(pair<int,int> range);
 public:
-    MKW_Converter(int nBuckets, int bucketSize, bool isOptimized);
-    vector<int> find_kw(int mkw);
+    MKW_Converter(int bucketSize, bool isOptimized);
     vector<int> find_mkw(int kw);
+    vector<int> find_kw(int mkw);
     vector<int> convert_query(vector<int> query);
     vector<vector<int>> bucketize_query(vector<int> query);
 };
