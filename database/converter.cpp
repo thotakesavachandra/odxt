@@ -26,7 +26,7 @@ vector<vector<string>> strip(const vector<vector<string>>& content){
 int main(){
     // reads from the db6k.dat file
 
-    auto content = read_file("db6k.dat");
+    auto content = read_file("db.dat");
     
     // erase the keyword part
     for(auto& row:content){
@@ -42,7 +42,7 @@ int main(){
     // lets shuffle the updates
     shuffle(updates.begin(), updates.end(), default_random_engine(0));
 
-    write_file("db6k_updates.csv", updates);
+    write_file("db_updates.csv", updates);
 
 
     return 0;
