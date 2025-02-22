@@ -11,8 +11,14 @@ using namespace std;
 vector<vector<string>> read_file(string filename);
 
 template <typename T>
-void write_file(string filename, const vector<vector<T>>& content){
-    ofstream file(filename);
+void write_file(string filename, const vector<vector<T>>& content, bool toAppend=false){
+    ofstream file;
+    if(toAppend){
+        file.open(filename, ios::app);
+    }
+    else{
+        file.open(filename, ios::trunc);
+    }
     for(auto& row:content){
         for(auto& s:row){
             file << s << ",";
@@ -20,6 +26,30 @@ void write_file(string filename, const vector<vector<T>>& content){
         file << "\n";
     }
     file.close();
+}
+
+template <typename T>
+vector<T> consolidate(vector<vector<T>>& arr){
+    // consolidates based on the modulo
+    int n = arr.size();
+    int sz = 0;
+    for(int i=0; i<n; i++) sz += arr[i].size();
+    
+    vector<T> ans(sz);
+    for(int i=0; i<sz; i++){
+        int idx = i % n;
+        ans[i] = arr[idx][i/n];
+    }
+    return std::move(ans);
+}
+
+template <typename T>
+vector<vector<T>> modulo_split(const vector<T>& arr, int n){
+    vector<vector<T>> ans(n);
+    for(int i=0; i<arr.size(); i++){
+        ans[i%n].push_back(arr[i]);
+    }
+    return std::move(ans);
 }
 
 template <typename T>

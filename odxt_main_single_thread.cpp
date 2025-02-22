@@ -2,6 +2,12 @@
 
 auto redis = Redis("tcp://127.0.0.1:6379");
 
+int Redis_Init(){
+    // select database 7
+    redis.command("SELECT", "7");
+    return 0;
+}
+
 int Sys_Init()
 {
     return 0;
@@ -28,7 +34,7 @@ int ODXT_Setup()
     return 0;
 }
 
-int ODXT_Update(std::string keyword, std::string kw, std::string id, unsigned char op)
+int ODXT_Update(std::string keyword, std::string kw, std::string id, int cnt, unsigned char op)
 {
     //////////////////////////////////////////////////////////////
     //Server
@@ -63,11 +69,11 @@ int ODXT_Update(std::string keyword, std::string kw, std::string id, unsigned ch
     ::memset(val,0x00,16);
 
     //Check if keyword is present or not
-    if(update_count.count(keyword) == 0){
-        update_count.insert(std::make_pair(keyword,0));
-    }
+    // if(update_count.count(keyword) == 0){
+    //     update_count.insert(std::make_pair(keyword,0));
+    // }
 
-    auto cnt = (update_count[keyword]++);
+    // auto cnt = (update_count[keyword]++);
 
     //Copy keyword
     StrToHex(keyword_chars, keyword, 4);
@@ -167,7 +173,7 @@ int ODXT_Update(std::string keyword, std::string kw, std::string id, unsigned ch
     return 0;
 }
 
-int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string> query)
+int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string> query, int update_cnt)
 {
     //////////////////////////////////////////////////////////////
     //Client
@@ -197,7 +203,7 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
     std::vector<std::vector<std::vector<string>>> xtokenList;
 
     //Get update count
-    auto update_cnt = update_count[query.at(0)];
+    // auto update_cnt = update_count[query.at(0)];
     //Get least frequent keyword, order the keywords in this way
     auto w1 = query.at(0);
     //Number of crossterms

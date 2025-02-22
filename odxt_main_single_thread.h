@@ -66,6 +66,7 @@ extern unsigned char KT[16];
 extern std::map<std::string,unsigned int> update_count;
 //----------------------------------------
 
+int Redis_Init();
 int Sys_Init();
 int Sys_Clear();
 
@@ -89,7 +90,7 @@ int ODXT_Setup();
  * @param id Document identifier to update
  * @param op Update operation to perform
  */
-int ODXT_Update(std::string keyword, std::string kw, std::string id, unsigned char op);
+int ODXT_Update(std::string keyword, std::string kw, std::string id, int cnt, unsigned char op);
 
 /**
  * @brief ODXT Search function
@@ -99,7 +100,7 @@ int ODXT_Update(std::string keyword, std::string kw, std::string id, unsigned ch
  * 
  * @param query Vector or conjunctive query keywords to search
  */
-int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string> query);
+int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string> query, int update_cnt);
 
 int SHA3_HASH(blake3_hasher *hasher,unsigned char *msg, unsigned char *digest);
 int SHA3_HASH_K(blake3_hasher *hasher,unsigned char *msg, unsigned char *digest);
