@@ -49,6 +49,7 @@ MKW_Converter* mdb = NULL;
 
 std::mutex update_count_mutex;
 
+
 void ODXT_SetUp_Thread(int start, int step, vector<vector<string>>& updates, vector<vector<string>>& mkw_updates, vector<vector<int64_t>>& update_time, vector<vector<int>>& mkw_update_count){
     for(int i=start; i<updates.size(); i+=step){
         auto row = updates[i];
@@ -181,7 +182,6 @@ void ODXT_Search_Thread(int start, int step, vector<vector<string>>& kw_queries,
         set<string> res;
         vector<thread> threads;
         std::mutex res_mutex;
-        const auto processor_count = std::thread::hardware_concurrency();
 
         for(int i=0; i<buckets.size(); i++){
             auto mkws = mdb->convert_query(buckets[i]);
@@ -206,11 +206,6 @@ void ODXT_Search_Thread(int start, int step, vector<vector<string>>& kw_queries,
                 bucket_ids.back().push_back(i);
             }
             threads.emplace_back(search_single, mkw_str, upd_cnt, ref(res), ref(res_mutex));
-            int cpu_idx = (rand()%processor_count + i%processor_count)%processor_count;
-            cpu_set_t cpu_set;
-            CPU_ZERO(&cpu_set);
-            CPU_SET(cpu_idx, &cpu_set);
-            pthread_setaffinity_np(threads.back().native_handle(), sizeof(cpu_set_t), &cpu_set);
         }
         for(auto& t:threads){
             t.join();

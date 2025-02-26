@@ -173,19 +173,11 @@ int ODXT_Update(std::string keyword, std::string kw, std::string id, int cnt, un
     return 0;
 }
 
-int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string> query, int update_cnt)
-{
-    //////////////////////////////////////////////////////////////
-    //Client
-    //////////////////////////////////////////////////////////////
-
-    vector<int> mkws;
-    vector<vector<int>> kws;
-    for(auto s:query){
-        mkws.push_back(strToInt(s));
-        kws.push_back(mdb->find_kw(mkws.back()));
-    }
-
+/**
+    @brief Computes the stokens and xtokens required for the search operation. Part of the client side operation before server search.
+*/
+int Client_Pre_Thread(const int start, const int step, const vector<string>& query, const unsigned int update_cnt, const vector<vector<int>>& kws, vector<string>& stokenList, vector<vector<vector<string>>>& xtokenList){
+    
     unsigned char saddrj_in[16];
     unsigned char saddrj[16];
 
@@ -198,18 +190,15 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
     unsigned char xtoken_exp[32];
     unsigned char xtoken_j[32];
 
-    //Stokentlist
-    std::vector<std::string> stokenList;
-    std::vector<std::vector<std::vector<string>>> xtokenList;
-
-    //Get update count
-    // auto update_cnt = update_count[query.at(0)];
-    //Get least frequent keyword, order the keywords in this way
     auto w1 = query.at(0);
     //Number of crossterms
     auto n = query.size()-1;//Remeber! Number of cross terms, not all query keywords!
 
-    for(unsigned int j=0;j<update_cnt;++j){
+    //Stokentlist
+    // std::vector<std::string> stokenList;
+    // std::vector<std::vector<std::vector<string>>> xtokenList;
+
+    for(unsigned int j=start; j<update_cnt; j+=step){
         ::memset(saddrj_in,0x00,16);
         //Copy w1
         StrToHex(saddrj_in,w1,4);
@@ -228,7 +217,7 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
         PRF_K(saddrj,saddrj_in, KT);
 
         //Insert into stokenList
-        stokenList.push_back(HexToStr(saddrj,16));
+        stokenList[j] = (HexToStr(saddrj,16));
 
         //Create xtokenlist container
         std::vector<std::vector<std::string>> xtokenList_j;
@@ -270,14 +259,16 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
         }
         shuffle(xtokenList_j.begin(),xtokenList_j.end(),default_random_engine(rand()));
         //Insert xtokenlist_j into container
-        xtokenList.push_back(xtokenList_j);
+        xtokenList[j] = (xtokenList_j);
     }
+    return 0;
+}
 
-    //////////////////////////////////////////////////////////////
-    //Server
-    //////////////////////////////////////////////////////////////
-
-    std::vector<std::pair<std::string,std::pair<unsigned int, unsigned int>>> sEOpList;
+/**
+    @brief Server side search operation. Performes the search for ith stoken and corresponding xtokenlist where i mod step == start.
+*/
+int Server_Search_Thread(const int start, const int step, const vector<string>& stokenList, const vector<vector<vector<string>>>& xtokenList, vector<pair<string,pair<unsigned int, unsigned int>>>& sEOpList){
+    
     unsigned int cnt_j = 0;
     unsigned char sval_alpha[48];
     unsigned char sval[16];
@@ -288,7 +279,7 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
     //Get stoken list size
     auto stokelist_size = stokenList.size();
 
-    for(unsigned int j=0;j<stokelist_size;++j){
+    for(unsigned int j=start; j<stokelist_size; j+=step){
         cnt_j = 0;
 
         ::memset(sval_alpha,0x00,48);
@@ -304,7 +295,7 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
 
         //Get the xtokenlist_j
         auto xtokenlist_j = xtokenList[j];
-        for(unsigned int i=0;i<n;++i){
+        for(unsigned int i=0; i<xtokenlist_j.size(); ++i){
             //Retrieve xtoken
             for(auto xtoken_str:xtokenlist_j[i]){
                 ::memset(xtag,0x00,32);
@@ -322,32 +313,68 @@ int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string
                     break;
                 }
             }
-
-            // auto xtoken_str = xtokelist_j[i];
-
-            // //Scalar multiplication
-            // ::memset(xtag,0x00,32);
-            // ::memset(xtoken,0x00,32);
-            // StrToHex(xtoken,xtoken_str,32);
-            // ScalarMul(xtag,alpha,xtoken);
-
-            // //XSet retrieval
-            // string xtag_str = HexToStr(xtag,32);
-            // auto val = redis.exists(xtag_str);
-            
-            // //If val exists, the increment count
-            // if(val){
-            //     cnt_j++;
-            // }
         }
         //Insert into sEOpList (j,sval,cnt_j) == (sval,(j,cnt_j))
-        sEOpList.push_back(std::make_pair(HexToStr(sval,16),std::make_pair(j,cnt_j)));//Send this to client
+        sEOpList[j] = (std::make_pair(HexToStr(sval,16),std::make_pair(j,cnt_j)));//Send this to client
     }
+    return 0;
+}
 
+
+
+int ODXT_Search(std::unordered_set<std::string> *IdList, std::vector<std::string> query, int update_cnt)
+{
     //////////////////////////////////////////////////////////////
     //Client
     //////////////////////////////////////////////////////////////
-    // std::unordered_set<std::string> IdList;
+
+    vector<int> mkws;
+    vector<vector<int>> kws;
+    for(auto s:query){
+        mkws.push_back(strToInt(s));
+        kws.push_back(mdb->find_kw(mkws.back()));
+    }
+
+    
+
+    //Stokentlist
+    std::vector<std::string> stokenList(update_cnt);
+    std::vector<std::vector<std::vector<string>>> xtokenList(update_cnt);
+
+    int pre_thread_count = min(update_cnt, (int)std::thread::hardware_concurrency());
+    std::vector<std::future<int>> pre_threads;
+    for(int i=0; i<pre_thread_count; ++i){
+        pre_threads.push_back(async(Client_Pre_Thread, i, pre_thread_count, std::ref(query), update_cnt, std::ref(kws), std::ref(stokenList), std::ref(xtokenList)));
+    }
+    for(auto& t:pre_threads){
+        t.get();
+    }
+
+    //////////////////////////////////////////////////////////////
+    //Server
+    //////////////////////////////////////////////////////////////
+
+    std::vector<std::pair<std::string,std::pair<unsigned int, unsigned int>>> sEOpList(stokenList.size());
+
+    int server_thread_count = min((unsigned int)stokenList.size(), std::thread::hardware_concurrency());
+    std::vector<std::future<int>> server_threads;
+    for(int i=0; i<server_thread_count; ++i){
+        server_threads.push_back(async(Server_Search_Thread, i, server_thread_count, std::ref(stokenList), std::ref(xtokenList), std::ref(sEOpList)));
+    }
+    for(auto& t:server_threads){
+        t.get();
+    }
+    
+
+    // //////////////////////////////////////////////////////////////
+    // //Client
+    // //////////////////////////////////////////////////////////////
+    // // std::unordered_set<std::string> IdList;
+
+    // // For now lets leave the client part here, we will parallelize it later
+
+    auto w1 = query.at(0);
+    auto n = query.size()-1;
 
     unsigned char sval_hex[16];
     unsigned char prf_kt_in[16];

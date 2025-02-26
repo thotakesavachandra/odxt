@@ -1,11 +1,11 @@
 import os
 
-# bucket_sizes = [5, 10]
-# hamming_weights = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-# isOptimized = [0, 1]
-bucket_sizes = [5]
-hamming_weights = [2]
-isOptimized = [0]
+bucket_sizes = [5, 10]
+hamming_weights = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+isOptimized = [0, 1]
+# bucket_sizes = [5]
+# hamming_weights = [2]
+# isOptimized = [0]
 num_queries = 50
 
 
@@ -30,7 +30,7 @@ def func(opt:int, bs:int, hw:int, to_setup:bool):
     else:
         os.system(f"make clean")
     os.system(f"make single_thread")
-    os.system(f"./sse_sing_thread_out {dir_name} 6043 {bs} {opt} {hw} {num_queries}")
+    os.system(f"./sse_sing_thread_out {dir_name} 97545 {bs} {opt} {hw} {num_queries}")
     os.system(f"make clean")
 
     # exp = custom_read(f"./test_vectors/{dir_name}/metaquery_result.csv")
